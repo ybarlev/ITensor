@@ -4,6 +4,7 @@
 #include "itensor/util/range.h"
 #include "itensor/util/set_scoped.h"
 #include "itensor/iqindex.h"
+#include "itensor/util/print_macro.h"
 #include <cstdlib>
 
 using namespace std;
@@ -346,6 +347,17 @@ CHECK(isComplex(T));
 CHECK_CLOSE(T.cplx(s1(1),s2(2)),3+5_i);
 }
 
+SECTION("Set Using vector<IndexVal>")
+{
+auto T = ITensor(s1,s2);
+auto v12 = vector<IndexVal>{{s2(2),s1(1)}};
+T.set(v12,12);
+auto v21 = vector<IndexVal>{{s1(2),s2(1)}};
+T.set(v21,21);
+CHECK_CLOSE(T.real(s1(1),s2(2)),12);
+CHECK_CLOSE(T.real(s1(2),s2(1)),21);
+}
+
 SECTION("IndexValConstructors")
 {
 SECTION("Rank 1")
@@ -640,6 +652,31 @@ SECTION("Diag Apply")
     auto adcc = apply(dc,fcc);
     CHECK(isComplex(adcc));
     CHECK(norm(2*dc - adcc) < 1E-12);
+    }
+
+SECTION("Diag Visit")
+    {
+    auto i = Index("i",4);
+    auto j = Index("j",4);
+
+    auto vr = vector<Real>{{3.,4.,5.,6.}};
+    auto vc = vector<Cplx>{{3._i,4.,5._i,6.}};
+
+    auto dr = diagTensor(vr,i,j);
+    auto dc = diagTensor(vc,i,j);
+
+    auto rtot1 = stdx::accumulate(vr,0.);
+    auto rtot2 = 0.;
+    auto doTotr = [&rtot2](Real r) { rtot2 += r; };
+    dr.visit(doTotr);
+    CHECK_CLOSE(rtot1,rtot2);
+
+    auto ctot1 = stdx::accumulate(vc,0._i);
+    auto ctot2 = 0._i;
+    auto doTotc = [&ctot2](Cplx c) { ctot2 += c; };
+    dc.visit(doTotc);
+    CHECK_CLOSE(ctot1,ctot2);
+
     }
 
 }
@@ -1520,6 +1557,8 @@ SECTION("Combiner")
         auto ci = commonIndex(C,R1);
         CHECK(ci);
         CHECK(ci.m() == s1.m()*s2.m());
+
+        CHECK(ci == combinedIndex(C));
 
         for(int i1 = 1; i1 <= s1.m(); ++i1)
         for(int i2 = 1; i2 <= s2.m(); ++i2)
@@ -2416,7 +2455,26 @@ SECTION("Scalar Storage")
         }
     }
 
-
+SECTION("ITensor Negation")
+    {
+    auto i = Index("i",2);
+    auto j = Index("j",2);
+    auto k = Index("k",2);
+    auto T = randomTensor(i,j,k);
+    //Print(T.real(i(1),j(1),k(1)));
+    auto oT = T;
+    auto N = -T;
+    //Print(oT.real(i(1),j(1),k(1)));
+    //Print(T.real(i(1),j(1),k(1)));
+    //Print(N.real(i(1),j(1),k(1)));
+    for(auto ii : range1(i))
+    for(auto ij : range1(j))
+    for(auto ik : range1(k))
+        {
+        CHECK_CLOSE(oT.real(i(ii),j(ij),k(ik)),T.real(i(ii),j(ij),k(ik)));
+        CHECK_CLOSE(-oT.real(i(ii),j(ij),k(ik)),N.real(i(ii),j(ij),k(ik)));
+        }
+    }
 
 
 } //TEST_CASE("ITensor")
